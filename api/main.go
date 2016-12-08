@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
+	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"gopkg.in/gin-gonic/gin.v1"
 )
@@ -402,23 +406,69 @@ type relatedProducts struct {
 }
 
 func main() {
-	r := gin.Default()
-	r.GET("/related/:name", func(c *gin.Context) {
-		id := c.Param("name")
-		url := "https://api.shopstyle.com/api/v2/products/" + id + "/related?pid=ios_app_v3"
-		response, error := http.Get(url)
+	relatedProductsMap := parseRelatedProducts()
 
-		if error != nil {
-			panic(error)
+	server := gin.Default()
+	server.GET("/related/:name", func(c *gin.Context) {
+		id := c.Param("name")
+		productList, productListPresent := relatedProductsMap[id]
+
+		if productListPresent {
+			client := &http.Client{}
+			request, error := http.NewRequest("GET", "https://api.shopstyle.com/api/v2/products", nil)
+			if error != nil {
+				panic(error)
+			}
+
+			query := request.URL.Query()
+			query.Add("pid", "shopstyle")
+
+			for _, productID := range productList {
+				query.Add("prodid", productID)
+			}
+
+			request.URL.RawQuery = query.Encode()
+			response, err := client.Do(request)
+
+			if err != nil {
+				panic(err)
+			}
+
+			defer response.Body.Close()
+
+			var body relatedProducts
+			json.NewDecoder(response.Body).Decode(&body)
+			c.JSON(http.StatusOK, body)
+		} else {
+			c.JSON(http.StatusOK, gin.H{"products": "[]"})
 		}
 
-		defer response.Body.Close()
-
-		var body relatedProducts
-		json.NewDecoder(response.Body).Decode(&body)
-
-		c.JSON(http.StatusOK, body)
 	})
 
-	r.Run(":8080")
+	server.Run(":8080")
+}
+
+func parseRelatedProducts() map[string][]string {
+	file, err := os.Open("related-products-dictionary.txt")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	relatedProducts := make(map[string][]string)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		splitLine := strings.Split(scanner.Text(), "|")
+		prodIDKey := splitLine[0]
+		prodIds := strings.Split(splitLine[1], ";")
+		relatedProducts[prodIDKey] = prodIds
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return relatedProducts
 }
