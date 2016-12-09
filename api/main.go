@@ -13,13 +13,28 @@ import (
 
 type relatedProducts struct {
 	Metadata struct {
-		Offset  int `json:"offset"`
-		Limit   int `json:"limit"`
-		Total   int `json:"total"`
-		Product struct {
-			ID   int    `json:"id"`
-			Name string `json:"name"`
-		} `json:"product"`
+		Offset   int `json:"offset"`
+		Limit    int `json:"limit"`
+		Total    int `json:"total"`
+		Category struct {
+			NumID        int    `json:"numId"`
+			ID           string `json:"id"`
+			Name         string `json:"name"`
+			ShortName    string `json:"shortName"`
+			FullName     string `json:"fullName"`
+			LocalizedIds struct {
+				DeDE string `json:"de-DE"`
+				EnUS string `json:"en-US"`
+				EnCA string `json:"en-CA"`
+				EnAU string `json:"en-AU"`
+				FrFR string `json:"fr-FR"`
+				ZhCN string `json:"zh-CN"`
+				EnME string `json:"en-ME"`
+				EnGB string `json:"en-GB"`
+				JaJP string `json:"ja-JP"`
+			} `json:"localizedIds"`
+			LocalizedID string `json:"localizedId"`
+		} `json:"category"`
 		ShowSizeFilter       bool `json:"showSizeFilter"`
 		ShowColorFilter      bool `json:"showColorFilter"`
 		ShowHeelHeightFilter bool `json:"showHeelHeightFilter"`
@@ -405,6 +420,10 @@ type relatedProducts struct {
 	} `json:"products"`
 }
 
+func newRelatedProducts() *relatedProducts {
+	return &relatedProducts{}
+}
+
 func main() {
 	relatedProductsMap := parseRelatedProducts()
 
@@ -436,7 +455,7 @@ func main() {
 
 			defer response.Body.Close()
 
-			var body relatedProducts
+			body := newRelatedProducts()
 			json.NewDecoder(response.Body).Decode(&body)
 			c.JSON(http.StatusOK, body)
 		} else {
